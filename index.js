@@ -22,7 +22,7 @@ import { Study } from './lib/study.js'
 import { registerTools } from './lib/tools.js'
 
 const DEFAULT_CONFIG = {
-  id: 'dafeiyu',
+  id: 'seed',
   dir: '~/.dsh/persona',
   hostId: 'mac-main',
   handle: '', // 他怎么叫我，留空就等他给；名字是自己起的，不走这里
