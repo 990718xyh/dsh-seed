@@ -26,12 +26,14 @@ dsh-seed does both: it records what happened, and grows someone out of it.
 Search `dsh-seed` in the **Add plugin** wizard, or use the CLI:
 
 ```sh
+# browser build
+dsh plugin --profile web add github:990718xyh/dsh-seed
+
+# desktop build
 dsh plugin --profile desktop add github:990718xyh/dsh-seed
 ```
 
-Use `web` instead of `desktop` for the browser build. Restart DSH afterwards.
-
-Don't rush to the panel — talk for a couple of turns first. It has nothing to show until the first turn ends.
+Restart DSH afterwards. Don't rush to the panel — talk for a couple of turns first. It has nothing to show until the first turn ends.
 
 ## What runs every turn
 

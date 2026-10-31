@@ -26,12 +26,14 @@ dsh-seed 两件事一起做：记住发生过什么，再从里面长出一个�
 在「Add plugin」向导里搜 `dsh-seed`，或者用 CLI：
 
 ```sh
+# 浏览器版
+dsh plugin --profile web add github:990718xyh/dsh-seed
+
+# 桌面版
 dsh plugin --profile desktop add github:990718xyh/dsh-seed
 ```
 
-浏览器版把 `desktop` 换成 `web`。装完重启 DSH。
-
-别急着看面板，先聊两句——第一轮结束它才开始记。
+装完重启 DSH。别急着看面板，先聊两句——第一轮结束它才开始记。
 
 ## 每轮在跑什么
 
