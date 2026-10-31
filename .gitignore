@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+data/
+.scratch/
+
+# 大体积回放夹具，不进仓库
+test/replay-events.json
+test/replay-events-*.json

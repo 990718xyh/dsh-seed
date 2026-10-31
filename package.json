@@ -1,0 +1,40 @@
+{
+  "name": "dsh-seed",
+  "version": "0.7.0",
+  "type": "module",
+  "description": "dsh-seed：从种子长起来的人格。九层记忆、反思、自学、心跳，初始不预设人设。",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "persona",
+    "memory",
+    "agent",
+    "人格",
+    "记忆"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/990718xyh/dsh-seed"
+  },
+  "homepage": "https://github.com/990718xyh/dsh-seed#readme"
+}

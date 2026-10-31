@@ -1,0 +1,16 @@
+- insert:
+    - id: persona
+      name: 'dsh-seed'
+      # 装完即启用。想先看看再开，在「设置 → 插件」里取消勾选即可。
+      disabled: false
+      config:
+        id: seed
+        dir: ~/.dsh/persona
+        # 自学要联网花钱，默认关；要用在自己配置里打开。
+        study:
+          enabled: false
+        heartbeat:
+          enabled: true
+        panel:
+          enabled: true
+          port: 8787
