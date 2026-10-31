@@ -1,5 +1,7 @@
 # dsh-seed
 
+[中文](README.md) | [English](README.en.md)
+
 **给 DSH 从零长出来的人格。**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
