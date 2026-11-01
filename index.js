@@ -554,11 +554,36 @@ export function apply(ctx, config) {
   // ---- 记忆工具 ---------------------------------------------------------
 
   if (opts.tools?.memory !== false) {
-    try {
-      ctx.effect(() => registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
-    } catch (error) {
-      log(`工具没注册上: ${String(error)}`)
-    }
+    // 重启后 tools 服务有时还没就绪，registerTools 会抛错。
+    // 以前一次失败就放弃（只写一行日志），表现就是「重启后工具全没了，热重载一次才回来」。
+    // 现在改成延迟重试，成功一次就停。
+    ctx.effect(() => {
+      const disposers = []
+      let stopped = false
+      const attempt = (round) => {
+        if (stopped) return
+        try {
+          disposers.push(registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
+        } catch (error) {
+          if (round >= 5) {
+            log(`工具没注册上（重试 ${round} 次仍失败）: ${String(error)}`)
+            return
+          }
+          setTimeout(() => attempt(round + 1), 200 * (round + 1))
+        }
+      }
+      attempt(0)
+      return () => {
+        stopped = true
+        for (const dispose of disposers) {
+          try {
+            dispose?.()
+          } catch {
+            /* 已经卸了 */
+          }
+        }
+      }
+    })
   }
 
   // 跨机桥交给 dsh-peer，这里不做。
