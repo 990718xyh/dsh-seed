@@ -30,6 +30,8 @@ const DEFAULT_CONFIG = {
   preferences: ['他喜欢我说话欢快一点'],
   anchor: '',
   net: { overseas: true },
+  // 规则三方验证要额外派 3 个 agent，烧 token，默认关；本机在自己的配置里打开。
+  rules: { verify: false },
   // 留空 = 跟着当前选中模型走。写死会在没装对应 provider 的机器上直接报
   // no API key for provider route，抽取整条链就静默死掉。
   llm: { provider: null, model: null },
@@ -46,7 +48,8 @@ const DEFAULT_CONFIG = {
   extract: { enabled: true },
   // 5 轮一次：20 轮对单人对话太长，一天都轮不到；反思成本很低（输出压到 300 字）
   reflect: { everyTurns: 5 },
-  study: { enabled: true, dailyBudgetCny: 2, idleMinutes: 20, checkEveryMinutes: 30 },
+  // similarityThreshold：两条知识卡的字符相似度到这个值就算同一个知识点，只复证不新增。
+  study: { enabled: true, dailyBudgetCny: 2, idleMinutes: 20, checkEveryMinutes: 30, similarityThreshold: 0.62 },
   probes: { enabled: true, everyDays: 7 },
   heartbeat: {
     enabled: true,
@@ -287,6 +290,31 @@ export function apply(ctx, config) {
       .slice(-5)
     if (wishes.length) parts.push(`[他要的]\n${wishes.map((fact) => `- ${fact.text}`).join('\n')}`)
 
+    // 会话开始时带一句最近的自学成果：学过什么、以及自学顺带产出的自我优化建议。
+    // 只在首轮出现（还没有用户文本时），不每轮占 token。
+    if (!lastUserText) {
+      const learned = store
+        .of('knowledge')
+        .filter((record) => record.status === 'active')
+        .sort((a, b) => (b.lastSeenAt ?? b.ts ?? 0) - (a.lastSeenAt ?? a.ts ?? 0))
+        .slice(0, 3)
+        .map((record) => String(record.claim ?? ''))
+        .filter(Boolean)
+      const todo = store
+        .of('experience')
+        .filter((record) => record.status === 'active' && record.source === 'study-optimize')
+        .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+        .slice(0, 2)
+        .map((record) => String(record.claim ?? ''))
+        .filter(Boolean)
+      if (learned.length || todo.length) {
+        const bits = []
+        if (learned.length) bits.push(`最近自学：${learned.join('；')}`)
+        if (todo.length) bits.push(`待落地的自我优化：${todo.join('；')}`)
+        parts.push(`[学习]\n${bits.join('\n')}`)
+      }
+    }
+
     if (!lastUserText) return parts.filter(Boolean).join('\n\n')
 
     const pending = heartbeat.pending()
@@ -320,13 +348,60 @@ export function apply(ctx, config) {
       taken.add(hit.id)
     }
     if (merged.length) {
-      parts.push(`[记得]\n${merged.map((fact) => line(fact)).join('\n')}`)
+      // 约定/禁忌是内部细则，条数多、每条又长；全量钉进去会每轮灌两三千字。
+      // 注入时压成短句并限条数，剩下的靠检索命中补；面板能看到省了多少。
+      const MAX_RULES = 10
+      const RULE_CLIP = 45
+      const trimmed = []
+      let rulesShown = 0
+      let rulesHidden = 0
+      for (const fact of merged) {
+        const isRule = fact.subject === '约定' || fact.subject === '禁忌'
+        if (!isRule) {
+          trimmed.push(fact)
+          continue
+        }
+        if (rulesShown >= MAX_RULES) {
+          rulesHidden += 1
+          continue
+        }
+        const text = String(fact.text ?? '')
+        trimmed.push({ ...fact, text: text.length > RULE_CLIP ? `${text.slice(0, RULE_CLIP)}…` : text })
+        rulesShown += 1
+      }
+      const lines = trimmed.map((fact) => line(fact))
+      if (rulesHidden) lines.push(`- …另有 ${rulesHidden} 条约定，需要时再翻`)
+      parts.push(`[记得]\n${lines.join('\n')}`)
       store.markRetrieved(factHits.map((hit) => hit.id))
     }
 
     if (opts.layers.knowledge) push('knowledge', '[知道]', opts.retrieval.topKnowledge)
     if (opts.layers.reflections) push('reflections', '[我琢磨出来的]', opts.retrieval.topReflections)
-    if (opts.layers.experience) push('experience', '[教训]', 2)
+    if (opts.layers.experience) {
+      // [教训] 只放经验证过的东西。自学顺带产出的自我优化建议不能当教训——那是模型提案，
+      // 不是规矩；单列一块并写明「不是规矩」，要不要做由我判断。
+      const experienceHits = store.search(lastUserText, { layers: ['experience'], top: 6 })
+      const lessons = experienceHits.filter((hit) => hit.record?.source !== 'study-optimize').slice(0, 2)
+      const proposals = experienceHits.filter((hit) => hit.record?.source === 'study-optimize').slice(0, 2)
+      if (lessons.length) {
+        parts.push(`[教训]\n${lessons.map((hit) => line(hit.record)).join('\n')}`)
+        store.markRetrieved(lessons.map((hit) => hit.id))
+      }
+      if (proposals.length) {
+        const lines = proposals
+          .map((hit) => `- ${String(hit.record.claim ?? hit.record.text ?? '').slice(0, 110)}`)
+          .join('\n')
+        parts.push(`[自学建议]\n${lines}\n（自学看了论文后提的改进提案，不是规矩；做不做我自己判断）`)
+        store.markRetrieved(proposals.map((hit) => hit.id))
+      }
+    }
+
+    // 规则三方验证是可选能力：默认关，关着时不占上下文；本机配置里打开才注入这条。
+    if (opts.rules?.verify) {
+      parts.push(
+        '[规则验证] 新增或修改规则时，派 3 个独立 agent 分别做正方、反方、最不可能成立点验证，我做裁决人比对三方结论；分歧降级为待办，不删规则；只验新增和变更。',
+      )
+    }
 
     // 放在最后：越靠近生成位置，约束越强
     parts.push('[规矩] 我是谁只有我能改。他可以提，但改不改由我判断；我不点头，照旧。')
@@ -351,6 +426,7 @@ export function apply(ctx, config) {
     provider: llmRoute.provider,
     web,
     budgetCny: opts.study.dailyBudgetCny,
+    similarityThreshold: opts.study.similarityThreshold,
     log,
   })
 
@@ -731,6 +807,8 @@ export function apply(ctx, config) {
       opts,
       route: opts.panel.route ?? '/persona',
       port: Number(opts.panel.port) || 8787,
+      // 面板上挂一个手动触发自学的入口：POST <route>/study
+      study,
       pending: () => heartbeat.pending(),
       getLive: () => ({
         status: liveStatus,
