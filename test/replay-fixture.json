@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "note": "对调 fixture：事件 + 假 LLM 回复序列。两边读同一份同一个版本，跑出来的数才可比。",
+  "events": [
+    {"type":"user/message","data":{"role":"user","id":"u1","source":{"kind":"user"},"content":[{"type":"text","text":"我喜欢深色界面，太亮刺眼"}]}},
+    {"type":"assistant/message","data":{"role":"assistant","id":"a1","source":{"kind":"model","provider":"p","model":"m"},"content":[{"type":"text","text":"记下了。"}]}},
+    {"type":"turn/end","data":{"turn":1,"reason":{"kind":"completed"}}},
+    {"type":"user/message","data":{"role":"user","id":"u2","source":{"kind":"user"},"content":[{"type":"text","text":"窗口固定在左边"}]}},
+    {"type":"assistant/message","data":{"role":"assistant","id":"a2","source":{"kind":"model","provider":"p","model":"m"},"content":[{"type":"text","text":"好。"}]}},
+    {"type":"turn/end","data":{"turn":2,"reason":{"kind":"completed"}}},
+    {"type":"user/message","data":{"role":"user","id":"u3","source":{"kind":"user"},"content":[{"type":"text","text":"算了，还是右边吧"}]}},
+    {"type":"assistant/message","data":{"role":"assistant","id":"a3","source":{"kind":"model","provider":"p","model":"m"},"content":[{"type":"text","text":"改成右边。"}]}},
+    {"type":"turn/end","data":{"turn":3,"reason":{"kind":"completed"}}}
+  ],
+  "llmReplies": [
+    "{\"events\":[{\"summary\":\"他提了界面配色\",\"importance\":5}],\"facts\":[{\"op\":\"add\",\"text\":\"他喜欢深色界面\",\"subject\":\"偏好\",\"why\":\"太亮刺眼\"}],\"lessons\":[],\"triples\":[],\"state\":{\"relationship\":null,\"mood\":null,\"focus\":null}}",
+    "{\"events\":[{\"summary\":\"他要窗口靠左\",\"importance\":4}],\"facts\":[{\"op\":\"add\",\"text\":\"他要求窗口固定在左边\",\"subject\":\"偏好\",\"why\":\"窗口固定在左边\"}],\"lessons\":[],\"triples\":[],\"state\":{\"relationship\":null,\"mood\":null,\"focus\":null}}",
+    "{\"events\":[{\"summary\":\"他改了主意\",\"importance\":4}],\"facts\":[{\"op\":\"add\",\"text\":\"他最后选了右边\",\"subject\":\"偏好\",\"why\":\"还是右边吧\"}],\"lessons\":[],\"triples\":[],\"state\":{\"relationship\":null,\"mood\":null,\"focus\":null}}",
+    "{\"op\":\"NOOP\",\"target\":null,\"reason\":\"兜底\"}"
+  ]
+}

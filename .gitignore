@@ -8,3 +8,6 @@ data/
 # 大体积回放夹具，不进仓库
 test/replay-events.json
 test/replay-events-*.json
+
+# 测试产生的临时数据
+test/.test-data/
