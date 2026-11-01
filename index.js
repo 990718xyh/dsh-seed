@@ -20,6 +20,7 @@ import { Probes } from './lib/probes.js'
 import { Store, ulid } from './lib/store.js'
 import { Study } from './lib/study.js'
 import { registerTools } from './lib/tools.js'
+import { nowLine } from './lib/time.js'
 
 const DEFAULT_CONFIG = {
   id: 'seed',
@@ -194,7 +195,10 @@ export function apply(ctx, config) {
 
   const buildContext = () => {
     if (!opts.inject.enabled) return ''
-    const parts = [lastCwd ? renderL0({ ...l0, cwd: lastCwd }) : l0Line]
+    // 时间跟在位置行后面：模型不知道现在几点，说「今天」「明天」全靠猜。
+    // nowLine 给的是结论词（上午/下午），不是小时数——给数字它会推错。
+    const base = lastCwd ? renderL0({ ...l0, cwd: lastCwd }) : l0Line
+    const parts = [`${base}\n${nowLine()}`]
 
     if (opts.layers.self) {
       const self = store.latest('self')
