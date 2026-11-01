@@ -631,10 +631,14 @@ export function apply(ctx, config) {
   // ---- 记忆工具 ---------------------------------------------------------
 
   if (opts.tools?.memory !== false) {
-    // 注册必须在 apply 里直接调，不能包进 ctx.effect。
-    // ctx.effect(fn) 不会立即执行 fn，它挂到 fiber 生命周期上、等 fiber 就绪才跑；
-    // 重启后那条路径没被触发时，effect 回调根本没执行过，工具就没了——
-    // 证据：apply 已经写了 reflect-gate 审计，但 tools-registered 一条都没有。
+    // 三个假设都试过了，按审计数据排下来：
+    //   1. 同步/异步 —— 不成立，attempt 本来就是同步调用
+    //   2. ctx.effect 回调不执行 —— 部分成立：改到 apply 里后重启确实写了 tools-registered
+    //   3. 注册「成功」但挂不上 —— 现在这条：重启后写了 tools-registered（hasTools=true），
+    //      工具却只有 2 个；热重载同样代码就有 11 个。差别只剩 fiber 状态。
+    // ctx.tools 没有 get/list 之类可查询的接口，注册后无法自检，
+    // 所以这里只能等一拍再注册，让 tools 接上真正的注册表。
+    // 这次没有离线验证手段，只能等下次重启数工具数。
     const disposers = []
     let stopped = false
     const attempt = (round) => {
@@ -666,7 +670,8 @@ export function apply(ctx, config) {
         setTimeout(() => attempt(round + 1), 500 * 2 ** round)
       }
     }
-    attempt(0)
+    // 冷启动先等一拍：tools 服务刚建好时注册会「成功」但挂不上。
+    setTimeout(() => attempt(0), 1000)
     // effect 只留卸载清理，不再承载注册动作
     ctx.effect(() => () => {
       stopped = true
