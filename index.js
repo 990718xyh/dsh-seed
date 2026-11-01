@@ -643,6 +643,13 @@ export function apply(ctx, config) {
       if (stopped) return
       try {
         disposers.push(registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
+        // 注册完重算：上面那个 toolCount 是 apply 时算的，那时工具还没注册，
+        // 注入里「手上有 N 个工具」会一直显示注册前的数字。
+        try {
+          toolCount = ctx.tools?.schemas?.()?.length ?? toolCount
+        } catch {
+          /* 数不出来就保持原值 */
+        }
         store.put('audit', {
           id: ulid(),
           ts: Date.now(),
