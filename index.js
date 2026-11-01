@@ -46,7 +46,8 @@ const DEFAULT_CONFIG = {
   extract: { enabled: true },
   // 5 轮一次：20 轮对单人对话太长，一天都轮不到；反思成本很低（输出压到 300 字）
   reflect: { everyTurns: 5 },
-  study: { enabled: true, dailyBudgetCny: 2, idleMinutes: 20, checkEveryMinutes: 30 },
+  // similarityThreshold：两条知识卡的字符相似度到这个值就算同一个知识点，只复证不新增。
+  study: { enabled: true, dailyBudgetCny: 2, idleMinutes: 20, checkEveryMinutes: 30, similarityThreshold: 0.62 },
   probes: { enabled: true, everyDays: 7 },
   heartbeat: {
     enabled: true,
@@ -351,6 +352,7 @@ export function apply(ctx, config) {
     provider: llmRoute.provider,
     web,
     budgetCny: opts.study.dailyBudgetCny,
+    similarityThreshold: opts.study.similarityThreshold,
     log,
   })
 
