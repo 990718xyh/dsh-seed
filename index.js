@@ -129,19 +129,39 @@ export function apply(ctx, config) {
         .filter((entry) => entry.isDirectory() && path.join(parent, entry.name) !== dir)
         .map((entry) => {
           const base = path.join(parent, entry.name, 'snapshot', 'base.json')
-          const journal = path.join(parent, entry.name, 'journal.jsonl')
-          let size = 0
+          // journal 是 journal/<hostId>.jsonl，不是根目录下单个文件
+          const journalDir = path.join(parent, entry.name, 'journal')
+          let hasJournal = false
           try {
-            size = fs.statSync(journal).size
+            hasJournal = fs
+              .readdirSync(journalDir)
+              .some((name) => name.endsWith('.jsonl') && fs.statSync(path.join(journalDir, name)).size > 0)
           } catch {
-            /* 没有 journal 就是空的 */
+            /* 没有 journal 目录就是没写过 */
           }
-          return { name: entry.name, hasData: fs.existsSync(base) || size > 0 }
+          return { name: entry.name, hasData: fs.existsSync(base) || hasJournal }
         })
         .filter((item) => item.hasData)
       if (siblings.length > 0) {
+        const dataDirs = siblings.map((item) => item.name)
+        // 写进 audit，不只 log：log 在后台一个字看不到，等于没做。
+        // 但**不自动切目录**——静默换一个数据集比读空目录更危险，那等于换了个人还不知道。
+        try {
+          store.put('audit', {
+            id: ulid(),
+            ts: Date.now(),
+            action: 'dir-fallback-suspect',
+            configuredId: opts.id,
+            configuredDir: dir,
+            dataDirs,
+            loaded,
+          })
+        } catch (error) {
+          // 审计写不进去也不能挡住告警，但要把原因说出来，不然等于静默失败
+          log(`目录自检的审计没写进去：${String(error)}`)
+        }
         log(
-          `当前 id=${opts.id} 指向空目录 ${dir}，但同级有带数据的目录：${siblings.map((s) => s.name).join('、')}。` +
+          `当前 id=${opts.id} 指向空目录 ${dir}，但同级有带数据的目录：${dataDirs.join('、')}。` +
             `多半是配置里没写 id 用了默认值，改回正确的 id 就能读回原数据，数据没丢。`,
         )
       }
