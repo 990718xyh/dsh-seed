@@ -119,6 +119,37 @@ export function apply(ctx, config) {
   const loaded = store.load()
   log(`从 ${dir} 载入 ${loaded} 条记录`)
 
+  // 配错目录的典型症状：配置里没写 id，用了默认值，于是读到一个全新的空目录，
+  // 旧数据其实还在同级的别的目录里。不报警的话，表现就是「记忆突然清空了」。
+  if (loaded === 0) {
+    try {
+      const parent = path.dirname(dir)
+      const siblings = fs
+        .readdirSync(parent, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && path.join(parent, entry.name) !== dir)
+        .map((entry) => {
+          const base = path.join(parent, entry.name, 'snapshot', 'base.json')
+          const journal = path.join(parent, entry.name, 'journal.jsonl')
+          let size = 0
+          try {
+            size = fs.statSync(journal).size
+          } catch {
+            /* 没有 journal 就是空的 */
+          }
+          return { name: entry.name, hasData: fs.existsSync(base) || size > 0 }
+        })
+        .filter((item) => item.hasData)
+      if (siblings.length > 0) {
+        log(
+          `当前 id=${opts.id} 指向空目录 ${dir}，但同级有带数据的目录：${siblings.map((s) => s.name).join('、')}。` +
+            `多半是配置里没写 id 用了默认值，改回正确的 id 就能读回原数据，数据没丢。`,
+        )
+      }
+    } catch {
+      /* 自检失败不能影响启动 */
+    }
+  }
+
   const selection = ctx.agentDefaultModel?.currentSelection?.()
 
   // 抽取、学习、探针都用当前选中的模型；配置里显式写了才覆盖。
