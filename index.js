@@ -198,12 +198,12 @@ export function apply(ctx, config) {
     web = null
   }
 
-  const l0 = buildL0({
+  let l0 = buildL0({
     selection,
     cwd: process.cwd(),
     toolCount,
   })
-  const l0Line = renderL0(l0)
+  let l0Line = renderL0(l0)
 
   const brain = new Brain({
     store,
@@ -647,6 +647,9 @@ export function apply(ctx, config) {
         // 注入里「手上有 N 个工具」会一直显示注册前的数字。
         try {
           toolCount = ctx.tools?.schemas?.()?.length ?? toolCount
+          // 光改 toolCount 没用：注入读的是 l0Line，它在注册之前就渲染完了。
+          l0 = buildL0({ selection, cwd: process.cwd(), toolCount })
+          l0Line = renderL0(l0)
         } catch {
           /* 数不出来就保持原值 */
         }
