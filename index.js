@@ -631,33 +631,50 @@ export function apply(ctx, config) {
   // ---- 记忆工具 ---------------------------------------------------------
 
   if (opts.tools?.memory !== false) {
-    // 重启后 tools 服务有时还没就绪，registerTools 会抛错。
-    // 以前一次失败就放弃（只写一行日志），表现就是「重启后工具全没了，热重载一次才回来」。
-    // 现在改成延迟重试，成功一次就停。
-    ctx.effect(() => {
-      const disposers = []
-      let stopped = false
-      const attempt = (round) => {
-        if (stopped) return
-        try {
-          disposers.push(registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
-        } catch (error) {
-          if (round >= 5) {
-            log(`工具没注册上（重试 ${round} 次仍失败）: ${String(error)}`)
-            return
-          }
-          setTimeout(() => attempt(round + 1), 200 * (round + 1))
+    // 注册必须在 apply 里直接调，不能包进 ctx.effect。
+    // ctx.effect(fn) 不会立即执行 fn，它挂到 fiber 生命周期上、等 fiber 就绪才跑；
+    // 重启后那条路径没被触发时，effect 回调根本没执行过，工具就没了——
+    // 证据：apply 已经写了 reflect-gate 审计，但 tools-registered 一条都没有。
+    const disposers = []
+    let stopped = false
+    const attempt = (round) => {
+      if (stopped) return
+      try {
+        disposers.push(registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
+        store.put('audit', {
+          id: ulid(),
+          ts: Date.now(),
+          action: 'tools-registered',
+          round,
+          platform: process.platform,
+          hasTools: Boolean(ctx.tools),
+        })
+      } catch (error) {
+        store.put('audit', {
+          id: ulid(),
+          ts: Date.now(),
+          action: 'tools-register-failed',
+          round,
+          err: String(error).slice(0, 160),
+          platform: process.platform,
+          hasTools: Boolean(ctx.tools),
+        })
+        if (round >= 6) {
+          log(`工具没注册上（重试 ${round} 次仍失败）: ${String(error)}`)
+          return
         }
+        setTimeout(() => attempt(round + 1), 500 * 2 ** round)
       }
-      attempt(0)
-      return () => {
-        stopped = true
-        for (const dispose of disposers) {
-          try {
-            dispose?.()
-          } catch {
-            /* 已经卸了 */
-          }
+    }
+    attempt(0)
+    // effect 只留卸载清理，不再承载注册动作
+    ctx.effect(() => () => {
+      stopped = true
+      for (const dispose of disposers) {
+        try {
+          dispose?.()
+        } catch {
+          /* 已经卸了 */
         }
       }
     })
