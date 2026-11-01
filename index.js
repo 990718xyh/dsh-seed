@@ -644,7 +644,7 @@ export function apply(ctx, config) {
       try {
         disposers.push(registerTools(ctx, { store, log, study, foreignOk: opts.net.overseas }))
         // 注册完重算：上面那个 toolCount 是 apply 时算的，那时工具还没注册，
-        // 注入里「手上有 N 个工具」会一直显示注册前的数字。
+        // 注入里「手上有 N 个工具」会一直显示注册前的数字——今天它误导了三次判断。
         try {
           toolCount = ctx.tools?.schemas?.()?.length ?? toolCount
           // 光改 toolCount 没用：注入读的是 l0Line，它在注册之前就渲染完了。
