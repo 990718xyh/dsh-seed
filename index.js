@@ -483,9 +483,12 @@ export function apply(ctx, config) {
       enqueue(async () => {
         if (!opts.extract.enabled) return
         // 对端 agent 的消息不是主人说的话：整条跳过抽取，免得把别的 agent 的
-        // 技术讨论抽成「关于主人的事实」。两种旧前缀都认：
-        //   [名字(平台)] …  和旧版的 [来自 xxx] …
-        if (/^(?:\[[^\]\n]+\([^)\n]+\)\]|\[来自 [^\]\n]+\])/.test(user)) {
+        // 技术讨论抽成「关于主人的事实」。三种都要认：
+        //   [peer v1 from=…]   现行格式
+        //   [名字(平台)] …     旧格式
+        //   [来自 xxx] …       更旧的格式
+        // 漏认一种，对端的消息就会被当成主人说的抽进记忆——这是污染，不是缺功能。
+        if (/^(?:\[peer v\d[^\]\n]*\]|\[[^\]\n]+\([^)\n]+\)\]|\[来自 [^\]\n]+\])/.test(user)) {
           store.put('audit', {
             id: ulid(),
             ts: Date.now(),
