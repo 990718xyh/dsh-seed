@@ -288,6 +288,31 @@ export function apply(ctx, config) {
       .slice(-5)
     if (wishes.length) parts.push(`[他要的]\n${wishes.map((fact) => `- ${fact.text}`).join('\n')}`)
 
+    // 会话开始时带一句最近的自学成果：学过什么、以及自学顺带产出的自我优化建议。
+    // 只在首轮出现（还没有用户文本时），不每轮占 token。
+    if (!lastUserText) {
+      const learned = store
+        .of('knowledge')
+        .filter((record) => record.status === 'active')
+        .sort((a, b) => (b.lastSeenAt ?? b.ts ?? 0) - (a.lastSeenAt ?? a.ts ?? 0))
+        .slice(0, 3)
+        .map((record) => String(record.claim ?? ''))
+        .filter(Boolean)
+      const todo = store
+        .of('experience')
+        .filter((record) => record.status === 'active' && record.source === 'study-optimize')
+        .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+        .slice(0, 2)
+        .map((record) => String(record.claim ?? ''))
+        .filter(Boolean)
+      if (learned.length || todo.length) {
+        const bits = []
+        if (learned.length) bits.push(`最近自学：${learned.join('；')}`)
+        if (todo.length) bits.push(`待落地的自我优化：${todo.join('；')}`)
+        parts.push(`[学习]\n${bits.join('\n')}`)
+      }
+    }
+
     if (!lastUserText) return parts.filter(Boolean).join('\n\n')
 
     const pending = heartbeat.pending()
