@@ -20,7 +20,7 @@ import { Probes } from './lib/probes.js'
 import { Store, ulid } from './lib/store.js'
 import { Study } from './lib/study.js'
 import { registerTools } from './lib/tools.js'
-import { nowLine, spokenBucket, timeBucket } from './lib/time.js'
+import { nowLine, spokenBucketDetail, timeBucket } from './lib/time.js'
 
 const DEFAULT_CONFIG = {
   id: 'seed',
@@ -473,15 +473,17 @@ export function apply(ctx, config) {
 
       // 时间漂移：我回复里说的时段跟现在对不上，说明我没看注入的 [现在]、自己在编。
       // 只记审计不拦——「今晚」在一句话里可能只是修辞，不当场判死刑。
-      const spoken = spokenBucket(assistant)
+      // hit 记下是哪个词触发的：没有它，讨论这个功能本身也会被当成说错。
+      const spokenDetail = spokenBucketDetail(assistant)
       const actual = timeBucket()
-      if (spoken && spoken !== actual) {
+      if (spokenDetail && spokenDetail.bucket !== actual) {
         store.put('audit', {
           id: ulid(),
           ts: Date.now(),
           action: 'time-drift',
           sessionId: session?.id ?? null,
-          spoken,
+          spoken: spokenDetail.bucket,
+          hit: spokenDetail.hit,
           actual,
           sample: assistant.slice(0, 60),
         })
